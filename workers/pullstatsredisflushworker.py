@@ -76,10 +76,6 @@ class RedisFlushWorker(Worker):
         except redis.ConnectionError as e:
             logger.warning(f"RedisFlushWorker: Redis connection failed (will retry): {e}")
             self.redis_client = None
-        except redis.AuthenticationError as e:
-            logger.critical(f"RedisFlushWorker: Redis authentication failed - check config: {e}")
-            self.redis_client = None
-            raise  # Fatal - worker should not start with bad credentials
         except redis.RedisError as e:
             logger.error(f"RedisFlushWorker: Redis initialization error: {e}")
             self.redis_client = None

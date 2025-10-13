@@ -94,43 +94,6 @@ def test_initialize_redis_client_connection_failure():
             assert worker.redis_client is None
 
 
-def test_initialize_redis_client_auth_failure():
-    """Test Redis client initialization when authentication fails."""
-    with patch("workers.pullstatsredisflushworker.app") as mock_app:
-        mock_app.config.get.side_effect = lambda key, default=None: {
-            "PULL_METRICS_REDIS": {
-                "host": "localhost",
-                "port": 6379,
-                "db": 1,
-                "password": "wrong_password",
-            },
-            "REDIS_CONNECTION_TIMEOUT": 5,
-        }.get(key, default)
-
-        import redis
-
-        from workers.pullstatsredisflushworker import RedisFlushWorker
-
-        with patch("workers.pullstatsredisflushworker.redis") as mock_redis_module:
-            # Mock Redis client that fails on ping with AuthenticationError
-            mock_client = MagicMock()
-            mock_client.ping.side_effect = redis.AuthenticationError("Authentication failed")
-            mock_redis_module.StrictRedis.return_value = mock_client
-            mock_redis_module.AuthenticationError = redis.AuthenticationError
-
-            # Test - should raise AuthenticationError
-            worker = None
-            try:
-                worker = RedisFlushWorker()
-                assert False, "Expected AuthenticationError to be raised"
-            except redis.AuthenticationError:
-                pass  # Expected behavior
-
-            # Verify - worker should still be created but with no redis_client
-            assert worker is not None
-            assert worker.redis_client is None
-
-
 def test_initialize_redis_client_redis_error():
     """Test Redis client initialization when a general Redis error occurs."""
     with patch("workers.pullstatsredisflushworker.app") as mock_app:

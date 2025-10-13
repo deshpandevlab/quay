@@ -18,6 +18,11 @@ import redis
 
 import features
 from app import app
+from data.model.pull_statistics import (
+    PullStatisticsException,
+    bulk_upsert_manifest_statistics,
+    bulk_upsert_tag_statistics,
+)
 from util.locking import GlobalLock
 from util.log import logfile_path
 from workers.gunicorn_worker import GunicornWorker
@@ -288,21 +293,41 @@ class RedisFlushWorker(Worker):
             manifest_count = 0
             has_updates = bool(tag_updates or manifest_updates)
 
-            # TODO: Implement database operations when schema is ready
             # Process tag updates
             if tag_updates:
-                # tag_count = bulk_upsert_tag_statistics(tag_updates)
-                tag_count = len(tag_updates)  # Mock for now
+                # Convert the data format to match the bulk_upsert_tag_statistics expectation
+                formatted_tag_updates = []
+                for update in tag_updates:
+                    formatted_update = {
+                        "repository_id": update["repository_id"],
+                        "tag_name": update["tag_name"],
+                        "manifest_digest": update["manifest_digest"],
+                        "pull_count": update["pull_count"],
+                        "last_pull_timestamp": update["last_pull"],  # datetime object
+                    }
+                    formatted_tag_updates.append(formatted_update)
+
+                tag_count = bulk_upsert_tag_statistics(formatted_tag_updates)
                 logger.info(
-                    f"RedisFlushWorker: Would update {tag_count}/{len(tag_updates)} tag statistics"
+                    f"RedisFlushWorker: Successfully updated {tag_count}/{len(tag_updates)} tag statistics"
                 )
 
             # Process manifest updates
             if manifest_updates:
-                # manifest_count = bulk_upsert_manifest_statistics(manifest_updates)
-                manifest_count = len(manifest_updates)  # Mock for now
+                # Convert the data format to match the bulk_upsert_manifest_statistics expectation
+                formatted_manifest_updates = []
+                for update in manifest_updates:
+                    formatted_update = {
+                        "repository_id": update["repository_id"],
+                        "manifest_digest": update["manifest_digest"],
+                        "pull_count": update["pull_count"],
+                        "last_pull_timestamp": update["last_pull"],  # datetime object
+                    }
+                    formatted_manifest_updates.append(formatted_update)
+
+                manifest_count = bulk_upsert_manifest_statistics(formatted_manifest_updates)
                 logger.info(
-                    f"RedisFlushWorker: Would update {manifest_count}/{len(manifest_updates)} manifest statistics"
+                    f"RedisFlushWorker: Successfully updated {manifest_count}/{len(manifest_updates)} manifest statistics"
                 )
 
             # Consider it successful if:
@@ -310,6 +335,9 @@ class RedisFlushWorker(Worker):
             # 2. There were no updates to process (empty batch)
             return (tag_count > 0 or manifest_count > 0) or not has_updates
 
+        except PullStatisticsException as e:
+            logger.error(f"RedisFlushWorker: Pull statistics error during database flush: {e}")
+            return False
         except Exception as e:
             logger.error(f"RedisFlushWorker: Error flushing to database: {e}")
             return False

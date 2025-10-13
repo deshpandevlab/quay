@@ -248,7 +248,7 @@ class RedisFlushWorker(Worker):
                         "repository_id": repository_id,
                         "manifest_digest": manifest_digest,
                         "pull_count": pull_count,
-                        "last_pull": pull_timestamp,
+                        "last_pull_timestamp": pull_timestamp,
                     }
                 )
 
@@ -260,7 +260,7 @@ class RedisFlushWorker(Worker):
                             "tag_name": tag_name,
                             "manifest_digest": manifest_digest,
                             "pull_count": pull_count,
-                            "last_pull": pull_timestamp,
+                            "last_pull_timestamp": pull_timestamp,
                         }
                     )
 
@@ -295,37 +295,14 @@ class RedisFlushWorker(Worker):
 
             # Process tag updates
             if tag_updates:
-                # Convert the data format to match the bulk_upsert_tag_statistics expectation
-                formatted_tag_updates = []
-                for update in tag_updates:
-                    formatted_update = {
-                        "repository_id": update["repository_id"],
-                        "tag_name": update["tag_name"],
-                        "manifest_digest": update["manifest_digest"],
-                        "pull_count": update["pull_count"],
-                        "last_pull_timestamp": update["last_pull"],  # datetime object
-                    }
-                    formatted_tag_updates.append(formatted_update)
-
-                tag_count = bulk_upsert_tag_statistics(formatted_tag_updates)
+                tag_count = bulk_upsert_tag_statistics(tag_updates)
                 logger.info(
                     f"RedisFlushWorker: Successfully updated {tag_count}/{len(tag_updates)} tag statistics"
                 )
 
             # Process manifest updates
             if manifest_updates:
-                # Convert the data format to match the bulk_upsert_manifest_statistics expectation
-                formatted_manifest_updates = []
-                for update in manifest_updates:
-                    formatted_update = {
-                        "repository_id": update["repository_id"],
-                        "manifest_digest": update["manifest_digest"],
-                        "pull_count": update["pull_count"],
-                        "last_pull_timestamp": update["last_pull"],  # datetime object
-                    }
-                    formatted_manifest_updates.append(formatted_update)
-
-                manifest_count = bulk_upsert_manifest_statistics(formatted_manifest_updates)
+                manifest_count = bulk_upsert_manifest_statistics(manifest_updates)
                 logger.info(
                     f"RedisFlushWorker: Successfully updated {manifest_count}/{len(manifest_updates)} manifest statistics"
                 )
